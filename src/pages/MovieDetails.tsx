@@ -1,13 +1,19 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Star, Calendar, Clock, Download } from "lucide-react";
+import { ArrowLeft, Star, Calendar, Clock, Download, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { useEffect, useRef, useState } from "react";
+import "@peaseernest/videoplayer/dist/videoplayer.css";
 
 const MovieDetails = () => {
   const { id } = useParams();
+  const [selectedQuality, setSelectedQuality] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playerRef = useRef<any>(null);
 
   const { data: movieInfo, isLoading: infoLoading } = useQuery({
     queryKey: ["movie-info", id],
@@ -49,6 +55,34 @@ const MovieDetails = () => {
 
   const movie = movieInfo?.results?.subject;
   if (!movie) return <div>Movie not found</div>;
+
+  useEffect(() => {
+    if (selectedQuality && isPlaying && typeof window !== "undefined") {
+      const loadPlayer = async () => {
+        try {
+          const videoplayer = (await import("@peaseernest/videoplayer")).default;
+          
+          if (playerRef.current) {
+            playerRef.current.dispose();
+          }
+          
+          videoplayer.init({
+            sourceUrl: selectedQuality.download_url,
+            stream: true,
+            volume: true,
+            pip: true,
+            buffering: 80,
+            autoplay: true,
+          });
+        } catch (error) {
+          console.error("Player error:", error);
+          toast.error("Failed to load video player");
+        }
+      };
+      
+      loadPlayer();
+    }
+  }, [selectedQuality, isPlaying]);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -145,28 +179,56 @@ const MovieDetails = () => {
 
           {sources?.results && sources.results.length > 0 && (
             <div>
-              <h2 className="text-xl font-semibold mb-3">Download Links</h2>
+              <h2 className="text-xl font-semibold mb-3">Watch & Download</h2>
+              
+              {isPlaying && selectedQuality && (
+                <Card className="bg-card/50 border-border/50 mb-4">
+                  <CardContent className="p-0">
+                    <div data-videoplayer="movie-player" className="w-full"></div>
+                  </CardContent>
+                </Card>
+              )}
+              
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {sources.results.map((source: any) => (
-                  <a
-                    key={source.id}
-                    href={source.download_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
+                  <div key={source.id}>
                     <Card className="bg-card/50 border-border/50 hover-glow transition-all cursor-pointer">
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold text-neon-pink">{source.quality}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {(parseInt(source.size) / (1024 * 1024)).toFixed(0)} MB
-                          </p>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="font-semibold text-neon-pink">{source.quality}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(parseInt(source.size) / (1024 * 1024)).toFixed(0)} MB
+                            </p>
+                          </div>
                         </div>
-                        <Download className="h-5 w-5 text-neon-cyan" />
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setSelectedQuality(source);
+                              setIsPlaying(true);
+                            }}
+                            className="flex-1 bg-gradient-to-r from-neon-purple to-neon-pink"
+                          >
+                            <Play className="h-3 w-3 mr-1" />
+                            Stream
+                          </Button>
+                          <a
+                            href={source.download_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1"
+                          >
+                            <Button size="sm" variant="outline" className="w-full">
+                              <Download className="h-3 w-3 mr-1" />
+                              Download
+                            </Button>
+                          </a>
+                        </div>
                       </CardContent>
                     </Card>
-                  </a>
+                  </div>
                 ))}
               </div>
             </div>
