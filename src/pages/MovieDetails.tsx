@@ -37,6 +37,48 @@ const MovieDetails = () => {
     },
   });
 
+  // MUST be before any early returns (Rules of Hooks)
+  useEffect(() => {
+    if (selectedQuality && isPlaying && typeof window !== "undefined") {
+      const loadPlayer = async () => {
+        try {
+          const videoplayer = (await import("@peaseernest/videoplayer")).default;
+          
+          if (playerRef.current) {
+            playerRef.current.dispose();
+            playerRef.current = null;
+          }
+          
+          setTimeout(() => {
+            playerRef.current = videoplayer.init({
+              sourceUrl: selectedQuality.download_url,
+              stream: true,
+              volume: true,
+              pip: true,
+              buffering: 80,
+              autoplay: true,
+            });
+          }, 100);
+        } catch (error) {
+          console.error("Player error:", error);
+          toast.error("Failed to load video player");
+        }
+      };
+      
+      loadPlayer();
+    }
+
+    return () => {
+      if (playerRef.current) {
+        try {
+          playerRef.current.dispose();
+        } catch (e) {
+          console.error("Cleanup error:", e);
+        }
+      }
+    };
+  }, [selectedQuality, isPlaying]);
+
   if (infoLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -54,35 +96,16 @@ const MovieDetails = () => {
   }
 
   const movie = movieInfo?.results?.subject;
-  if (!movie) return <div>Movie not found</div>;
-
-  useEffect(() => {
-    if (selectedQuality && isPlaying && typeof window !== "undefined") {
-      const loadPlayer = async () => {
-        try {
-          const videoplayer = (await import("@peaseernest/videoplayer")).default;
-          
-          if (playerRef.current) {
-            playerRef.current.dispose();
-          }
-          
-          videoplayer.init({
-            sourceUrl: selectedQuality.download_url,
-            stream: true,
-            volume: true,
-            pip: true,
-            buffering: 80,
-            autoplay: true,
-          });
-        } catch (error) {
-          console.error("Player error:", error);
-          toast.error("Failed to load video player");
-        }
-      };
-      
-      loadPlayer();
-    }
-  }, [selectedQuality, isPlaying]);
+  if (!movie) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <h1 className="text-2xl font-bold mb-4">Movie not found</h1>
+        <Link to="/movies">
+          <Button variant="outline">Back to Movies</Button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
