@@ -44,6 +44,8 @@ const Home = () => {
         const response = await fetch("https://iptv-org.github.io/iptv/categories/sports.m3u");
         const text = await response.text();
         
+        console.log("IPTV Response received, length:", text.length);
+        
         const channelList: Channel[] = [];
         const lines = text.split("\n");
         
@@ -65,13 +67,19 @@ const Home = () => {
           }
         }
         
-        setChannels(channelList.slice(0, 8));
+        console.log("Total channels parsed:", channelList.length);
+        console.log("First 3 channels:", channelList.slice(0, 3));
+        
+        setChannels(channelList.slice(0, 20)); // Increase to 20 channels
         if (channelList.length > 0) {
           setSelectedChannel(channelList[0]);
+          console.log("Selected channel:", channelList[0]);
+        } else {
+          toast.error("No sports channels found");
         }
       } catch (error) {
         toast.error("Failed to load sports channels");
-        console.error(error);
+        console.error("IPTV fetch error:", error);
       } finally {
         setLoadingChannels(false);
       }
@@ -143,37 +151,74 @@ const Home = () => {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-12 w-12 animate-spin text-neon-purple" />
           </div>
+        ) : channels.length === 0 ? (
+          <div className="text-center py-12">
+            <Tv className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground mb-2">No sports channels available</p>
+            <p className="text-sm text-muted-foreground">IPTV links may be temporarily unavailable. Please refresh.</p>
+          </div>
         ) : (
           <div className="grid lg:grid-cols-[2fr_1fr] gap-6">
             <Card className="bg-card/50 border-border/50 overflow-hidden">
-              {selectedChannel && (
-                <div data-videoplayer="home-sports" className="w-full aspect-video"></div>
+              {selectedChannel ? (
+                <div>
+                  <div className="p-4 bg-background/50 border-b border-border/50">
+                    <div className="flex items-center gap-3">
+                      {selectedChannel.logo && (
+                        <img
+                          src={selectedChannel.logo}
+                          alt={selectedChannel.name}
+                          className="h-8 w-8 rounded object-contain bg-white/10 p-1"
+                        />
+                      )}
+                      <span className="font-semibold text-neon-cyan">{selectedChannel.name}</span>
+                    </div>
+                  </div>
+                  <div data-videoplayer="home-sports" className="w-full aspect-video"></div>
+                </div>
+              ) : (
+                <div className="aspect-video flex items-center justify-center">
+                  <p className="text-muted-foreground">Select a channel to start watching</p>
+                </div>
               )}
             </Card>
             
-            <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 max-h-[400px] overflow-y-auto">
-              {channels.map((channel) => (
-                <button
-                  key={channel.id}
-                  onClick={() => setSelectedChannel(channel)}
-                  className={`p-3 rounded-lg border transition-all hover-glow text-left ${
-                    selectedChannel?.id === channel.id
-                      ? "bg-neon-purple/20 border-neon-purple"
-                      : "bg-background/50 border-border/30 hover:border-neon-purple/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    {channel.logo && (
-                      <img
-                        src={channel.logo}
-                        alt={channel.name}
-                        className="h-8 w-8 rounded object-contain bg-white/10 p-1"
-                      />
-                    )}
-                    <span className="text-sm font-medium line-clamp-2">{channel.name}</span>
-                  </div>
-                </button>
-              ))}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground mb-2">Available Channels ({channels.length})</p>
+              <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 max-h-[500px] overflow-y-auto">
+                {channels.map((channel) => (
+                  <button
+                    key={channel.id}
+                    onClick={() => {
+                      console.log("Switching to channel:", channel.name);
+                      setSelectedChannel(channel);
+                    }}
+                    className={`p-3 rounded-lg border transition-all hover-glow text-left ${
+                      selectedChannel?.id === channel.id
+                        ? "bg-neon-purple/20 border-neon-purple"
+                        : "bg-background/50 border-border/30 hover:border-neon-purple/50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      {channel.logo ? (
+                        <img
+                          src={channel.logo}
+                          alt={channel.name}
+                          className="h-8 w-8 rounded object-contain bg-white/10 p-1"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded bg-neon-purple/20 flex items-center justify-center">
+                          <Tv className="h-4 w-4 text-neon-purple" />
+                        </div>
+                      )}
+                      <span className="text-sm font-medium line-clamp-2 flex-1">{channel.name}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
