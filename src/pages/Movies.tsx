@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Search, Film } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Search, Film, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -35,6 +36,12 @@ const Movies = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <Link to="/">
+        <Button variant="ghost" className="mb-4">
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Home
+        </Button>
+      </Link>
       <div className="mb-8">
         <h1 className="text-4xl font-bold neon-text mb-2">Movies</h1>
         <p className="text-muted-foreground">Search and stream thousands of movies</p>
