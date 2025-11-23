@@ -1,19 +1,20 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Star, Calendar, Clock, Download, Play } from "lucide-react";
+import { ArrowLeft, Star, Calendar, Clock, Download, Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useEffect, useRef, useState } from "react";
-import "@peaseernest/videoplayer/dist/videoplayer.css";
+import Hls from "hls.js";
 
 const MovieDetails = () => {
   const { id } = useParams();
   const [selectedQuality, setSelectedQuality] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const playerRef = useRef<any>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
 
   const { data: movieInfo, isLoading: infoLoading } = useQuery({
     queryKey: ["movie-info", id],
@@ -37,44 +38,113 @@ const MovieDetails = () => {
     },
   });
 
-  // MUST be before any early returns (Rules of Hooks)
   useEffect(() => {
-    if (selectedQuality && isPlaying && typeof window !== "undefined") {
-      const loadPlayer = async () => {
-        try {
-          const videoplayer = (await import("@peaseernest/videoplayer")).default;
-          
-          if (playerRef.current) {
-            playerRef.current.dispose();
-            playerRef.current = null;
+    if (!selectedQuality || !isPlaying || !videoRef.current) return;
+
+    console.log("🎬 Loading movie:", selectedQuality.quality);
+    console.log("🔗 URL:", selectedQuality.download_url);
+
+    // Destroy previous instance
+    if (hlsRef.current) {
+      console.log("🗑️ Destroying previous HLS");
+      try {
+        hlsRef.current.destroy();
+      } catch (e) {
+        console.error("Destroy error:", e);
+      }
+      hlsRef.current = null;
+    }
+
+    const video = videoRef.current;
+    const url = selectedQuality.download_url;
+
+    // Check if it's HLS or direct MP4
+    if (url.includes('.m3u8')) {
+      if (Hls.isSupported()) {
+        console.log("✅ HLS.js supported");
+
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          backBufferLength: 20, // Keep 20s buffer behind
+          maxBufferLength: 30, // 30s ahead buffer
+          maxMaxBufferLength: 60, // Max 60s total
+          maxBufferSize: 50 * 1000 * 1000, // 50MB max for movies
+          maxBufferHole: 0.5,
+          manifestLoadingTimeOut: 15000,
+          manifestLoadingMaxRetry: 3,
+          levelLoadingTimeOut: 15000,
+          levelLoadingMaxRetry: 3,
+          fragLoadingTimeOut: 30000, // 30s for large movie fragments
+          fragLoadingMaxRetry: 4,
+          debug: false
+        });
+
+        hlsRef.current = hls;
+        hls.loadSource(url);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log("✅ Manifest parsed");
+          video.play().catch(err => {
+            console.error("❌ Play error:", err);
+            toast.error("Click play button to start");
+          });
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          console.error("❌ HLS Error:", data.type, data.details);
+
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.error("💥 Network error");
+                toast.error("Network error. Check your connection.");
+                hls.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.error("💥 Media error");
+                toast.error("Media error. Trying to recover...");
+                hls.recoverMediaError();
+                break;
+              default:
+                console.error("💥 Fatal error");
+                toast.error("Playback failed. Try downloading instead.");
+                hls.destroy();
+                hlsRef.current = null;
+                break;
+            }
           }
-          
-          setTimeout(() => {
-            playerRef.current = videoplayer.init({
-              sourceUrl: selectedQuality.download_url,
-              stream: true,
-              volume: true,
-              pip: true,
-              buffering: 80,
-              autoplay: true,
-            });
-          }, 100);
-        } catch (error) {
-          console.error("Player error:", error);
-          toast.error("Failed to load video player");
-        }
-      };
-      
-      loadPlayer();
+        });
+
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        console.log("✅ Native HLS (Safari)");
+        video.src = url;
+        video.play().catch(err => {
+          console.error("❌ Play error:", err);
+          toast.error("Click play to start");
+        });
+      } else {
+        toast.error("HLS not supported in this browser");
+      }
+    } else {
+      // Direct MP4 playback
+      console.log("📹 Direct MP4 playback");
+      video.src = url;
+      video.play().catch(err => {
+        console.error("❌ Play error:", err);
+        toast.error("Click play to start");
+      });
     }
 
     return () => {
-      if (playerRef.current) {
+      if (hlsRef.current) {
         try {
-          playerRef.current.dispose();
+          hlsRef.current.destroy();
         } catch (e) {
           console.error("Cleanup error:", e);
         }
+        hlsRef.current = null;
       }
     };
   }, [selectedQuality, isPlaying]);
@@ -115,6 +185,38 @@ const MovieDetails = () => {
           Back to Movies
         </Button>
       </Link>
+
+      {/* Video Player - Full Width when playing */}
+      {isPlaying && selectedQuality && (
+        <Card className="bg-card/50 border-border/50 mb-8">
+          <CardContent className="p-0 relative">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="absolute top-2 right-2 z-10 bg-black/50 hover:bg-black/70"
+              onClick={() => {
+                setIsPlaying(false);
+                setSelectedQuality(null);
+              }}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <div className="aspect-video bg-black">
+              <video
+                ref={videoRef}
+                className="w-full h-full"
+                controls
+                playsInline
+              />
+            </div>
+            <div className="p-4 bg-background/50">
+              <p className="text-sm text-muted-foreground">
+                Playing: <span className="text-neon-pink font-semibold">{selectedQuality.quality}</span>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid md:grid-cols-[300px_1fr] gap-8">
         <div>
@@ -204,54 +306,46 @@ const MovieDetails = () => {
             <div>
               <h2 className="text-xl font-semibold mb-3">Watch & Download</h2>
               
-              {isPlaying && selectedQuality && (
-                <Card className="bg-card/50 border-border/50 mb-4">
-                  <CardContent className="p-0">
-                    <div data-videoplayer="movie-player" className="w-full"></div>
-                  </CardContent>
-                </Card>
-              )}
-              
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {sources.results.map((source: any) => (
-                  <div key={source.id}>
-                    <Card className="bg-card/50 border-border/50 hover-glow transition-all cursor-pointer">
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <p className="font-semibold text-neon-pink">{source.quality}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(parseInt(source.size) / (1024 * 1024)).toFixed(0)} MB
-                            </p>
-                          </div>
+                  <Card key={source.id} className="bg-card/50 border-border/50 hover-glow transition-all">
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="font-semibold text-neon-pink">{source.quality}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {(parseInt(source.size) / (1024 * 1024)).toFixed(0)} MB
+                          </p>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setSelectedQuality(source);
-                              setIsPlaying(true);
-                            }}
-                            className="flex-1 bg-gradient-to-r from-neon-purple to-neon-pink"
-                          >
-                            <Play className="h-3 w-3 mr-1" />
-                            Stream
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            console.log("🎬 Selected:", source.quality, source.download_url);
+                            setSelectedQuality(source);
+                            setIsPlaying(true);
+                            toast.success(`Loading ${source.quality} quality...`);
+                          }}
+                          className="flex-1 bg-gradient-to-r from-neon-purple to-neon-pink"
+                        >
+                          <Play className="h-3 w-3 mr-1" />
+                          Stream
+                        </Button>
+                        <a
+                          href={source.download_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1"
+                        >
+                          <Button size="sm" variant="outline" className="w-full">
+                            <Download className="h-3 w-3 mr-1" />
+                            Download
                           </Button>
-                          <a
-                            href={source.download_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex-1"
-                          >
-                            <Button size="sm" variant="outline" className="w-full">
-                              <Download className="h-3 w-3 mr-1" />
-                              Download
-                            </Button>
-                          </a>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                        </a>
+                      </div>
+                    </CardContent>
+                  </Card>
                 ))}
               </div>
             </div>

@@ -1,10 +1,9 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Film, Tv, Loader2, Play } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import "@peaseernest/videoplayer/dist/videoplayer.css";
 
 interface Channel {
   id: string;
@@ -26,7 +25,6 @@ const Home = () => {
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
   const [loadingChannels, setLoadingChannels] = useState(true);
-  const playerRef = useRef<any>(null);
 
   const { data: moviesData } = useQuery({
     queryKey: ["homepage"],
@@ -41,45 +39,60 @@ const Home = () => {
     const fetchChannels = async () => {
       try {
         setLoadingChannels(true);
+        console.log("🔍 Fetching IPTV channels...");
+        
         const response = await fetch("https://iptv-org.github.io/iptv/categories/sports.m3u");
         const text = await response.text();
         
-        console.log("IPTV Response received, length:", text.length);
+        console.log("✅ IPTV Response received, length:", text.length);
+        console.log("📄 First 300 chars:", text.substring(0, 300));
         
         const channelList: Channel[] = [];
         const lines = text.split("\n");
         
+        console.log("📊 Total lines:", lines.length);
+        
         for (let i = 0; i < lines.length; i++) {
-          if (lines[i].startsWith("#EXTINF:")) {
-            const nameMatch = lines[i].match(/,(.+)$/);
-            const logoMatch = lines[i].match(/tvg-logo="([^"]+)"/);
-            const idMatch = lines[i].match(/tvg-id="([^"]+)"/);
-            const url = lines[i + 1]?.trim();
+          const line = lines[i].trim();
+          
+          if (line.includes("#EXTINF:")) {
+            const nextLine = lines[i + 1]?.trim();
             
-            if (nameMatch && url && url.startsWith("http")) {
+            const nameMatch = line.match(/,([^,]+)$/);
+            const logoMatch = line.match(/tvg-logo="([^"]+)"/);
+            const idMatch = line.match(/tvg-id="([^"]+)"/);
+            
+            if (nameMatch && nextLine && 
+                !nextLine.startsWith("#") && 
+                (nextLine.startsWith("http") || nextLine.startsWith("rtmp") || nextLine.startsWith("udp"))) {
+              
               channelList.push({
-                id: idMatch?.[1] || `channel-${i}`,
+                id: idMatch?.[1] || `channel-${channelList.length}`,
                 name: nameMatch[1].trim(),
                 logo: logoMatch?.[1] || "",
-                url: url,
+                url: nextLine,
               });
+              
+              // Log first 3 channels
+              if (channelList.length <= 3) {
+                console.log(`✨ Channel ${channelList.length}:`, nameMatch[1].trim());
+              }
             }
           }
         }
         
-        console.log("Total channels parsed:", channelList.length);
-        console.log("First 3 channels:", channelList.slice(0, 3));
+        console.log("✅ Total channels parsed:", channelList.length);
         
-        setChannels(channelList.slice(0, 20)); // Increase to 20 channels
+        setChannels(channelList.slice(0, 20)); // Show first 20 channels
         if (channelList.length > 0) {
           setSelectedChannel(channelList[0]);
-          console.log("Selected channel:", channelList[0]);
+          console.log("🎯 Selected first channel:", channelList[0].name);
         } else {
           toast.error("No sports channels found");
         }
       } catch (error) {
         toast.error("Failed to load sports channels");
-        console.error("IPTV fetch error:", error);
+        console.error("❌ IPTV fetch error:", error);
       } finally {
         setLoadingChannels(false);
       }
@@ -87,48 +100,6 @@ const Home = () => {
 
     fetchChannels();
   }, []);
-
-  useEffect(() => {
-    if (selectedChannel && typeof window !== "undefined") {
-      const loadPlayer = async () => {
-        try {
-          const videoplayer = (await import("@peaseernest/videoplayer")).default;
-          
-          if (playerRef.current) {
-            playerRef.current.dispose();
-            playerRef.current = null;
-          }
-          
-          // Small delay to ensure DOM is ready
-          setTimeout(() => {
-            playerRef.current = videoplayer.init({
-              sourceUrl: selectedChannel.url,
-              stream: true,
-              volume: true,
-              pip: true,
-              buffering: 60,
-              autoplay: true,
-            });
-          }, 100);
-        } catch (error) {
-          console.error("Player error:", error);
-          toast.error("Failed to load video player");
-        }
-      };
-      
-      loadPlayer();
-    }
-    
-    return () => {
-      if (playerRef.current) {
-        try {
-          playerRef.current.dispose();
-        } catch (e) {
-          console.error("Cleanup error:", e);
-        }
-      }
-    };
-  }, [selectedChannel]);
 
   const bannerMovies = moviesData?.results?.operatingList?.find((item: any) => item.type === "BANNER")?.banner?.items || [];
   const featuredMovies = bannerMovies.slice(0, 12);
@@ -169,12 +140,17 @@ const Home = () => {
                           src={selectedChannel.logo}
                           alt={selectedChannel.name}
                           className="h-8 w-8 rounded object-contain bg-white/10 p-1"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
                         />
                       )}
                       <span className="font-semibold text-neon-cyan">{selectedChannel.name}</span>
                     </div>
                   </div>
-                  <div data-videoplayer="home-sports" className="w-full aspect-video"></div>
+                  <div className="aspect-video bg-black flex items-center justify-center">
+                    <p className="text-gray-400">Click "View All →" to watch streams</p>
+                  </div>
                 </div>
               ) : (
                 <div className="aspect-video flex items-center justify-center">
@@ -187,13 +163,10 @@ const Home = () => {
               <p className="text-sm text-muted-foreground mb-2">Available Channels ({channels.length})</p>
               <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 max-h-[500px] overflow-y-auto">
                 {channels.map((channel) => (
-                  <button
+                  <Link
                     key={channel.id}
-                    onClick={() => {
-                      console.log("Switching to channel:", channel.name);
-                      setSelectedChannel(channel);
-                    }}
-                    className={`p-3 rounded-lg border transition-all hover-glow text-left ${
+                    to="/sports"
+                    className={`p-3 rounded-lg border transition-all hover-glow text-left block ${
                       selectedChannel?.id === channel.id
                         ? "bg-neon-purple/20 border-neon-purple"
                         : "bg-background/50 border-border/30 hover:border-neon-purple/50"
@@ -205,6 +178,7 @@ const Home = () => {
                           src={channel.logo}
                           alt={channel.name}
                           className="h-8 w-8 rounded object-contain bg-white/10 p-1"
+                          loading="lazy"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                           }}
@@ -216,7 +190,7 @@ const Home = () => {
                       )}
                       <span className="text-sm font-medium line-clamp-2 flex-1">{channel.name}</span>
                     </div>
-                  </button>
+                  </Link>
                 ))}
               </div>
             </div>
