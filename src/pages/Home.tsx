@@ -88,23 +88,38 @@ const Home = () => {
           
           if (playerRef.current) {
             playerRef.current.dispose();
+            playerRef.current = null;
           }
           
-          videoplayer.init({
-            sourceUrl: selectedChannel.url,
-            stream: true,
-            volume: true,
-            pip: true,
-            buffering: 60,
-            autoplay: true,
-          });
+          // Small delay to ensure DOM is ready
+          setTimeout(() => {
+            playerRef.current = videoplayer.init({
+              sourceUrl: selectedChannel.url,
+              stream: true,
+              volume: true,
+              pip: true,
+              buffering: 60,
+              autoplay: true,
+            });
+          }, 100);
         } catch (error) {
           console.error("Player error:", error);
+          toast.error("Failed to load video player");
         }
       };
       
       loadPlayer();
     }
+    
+    return () => {
+      if (playerRef.current) {
+        try {
+          playerRef.current.dispose();
+        } catch (e) {
+          console.error("Cleanup error:", e);
+        }
+      }
+    };
   }, [selectedChannel]);
 
   const bannerMovies = moviesData?.results?.operatingList?.find((item: any) => item.type === "BANNER")?.banner?.items || [];
