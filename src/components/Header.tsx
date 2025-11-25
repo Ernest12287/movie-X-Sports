@@ -36,8 +36,15 @@ export const Header = () => {
               Movies
             </Link>
             <Link 
-              to="/sports" 
+              to="/series" 
               className="flex items-center gap-2 text-sm font-medium transition-colors hover:text-neon-purple"
+            >
+              <Tv className="h-4 w-4" />
+              Series
+            </Link>
+            <Link 
+              to="/sports" 
+              className="flex items-center gap-2 text-sm font-medium transition-colors hover:text-neon-cyan"
             >
               <Tv className="h-4 w-4" />
               Sports

@@ -1,53 +1,49 @@
+// src/components/SeriesCard.tsx
 import { Link } from "react-router-dom";
-import { Star, Calendar } from "lucide-react";
+import { Star, Calendar, Tv } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
-interface MovieCardProps {
-  movie: any;
+interface SeriesCardProps {
+  series: any;
 }
 
-export const MovieCard = ({ movie }: MovieCardProps) => {
-  // Check if it's a series (subjectType === 2) or movie (subjectType === 1)
-  const isSeries = movie.subjectType === 2;
-  const path = isSeries ? `/series/${movie.subjectId}` : `/movie/${movie.subjectId}`;
-  
-  
-  return <Link to={path}>
-    
+export const SeriesCard = ({ series }: SeriesCardProps) => {
+  return (
+    <Link to={`/series/${series.subjectId}`}>
       <Card className="group overflow-hidden hover-glow border-border/50 bg-card/50 transition-all">
         <div className="relative aspect-[2/3] overflow-hidden">
           <img
-            src={movie.thumbnail || movie.cover?.url}
-            alt={movie.title}
+            src={series.thumbnail || series.cover?.url}
+            alt={series.title}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
             loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          {isSeries && (
-            <div className="absolute top-2 right-2 bg-neon-purple px-2 py-1 rounded text-xs font-bold">
-              SERIES
-            </div>
-          )}
+          
+          {/* Series Badge */}
+          <div className="absolute top-2 right-2 bg-neon-purple px-2 py-1 rounded flex items-center gap-1 text-xs font-bold">
+            <Tv className="h-3 w-3" />
+            SERIES
+          </div>
         </div>
         <CardContent className="p-3">
-          <h3 className="font-semibold text-sm line-clamp-1 mb-1">{movie.title}</h3>
+          <h3 className="font-semibold text-sm line-clamp-1 mb-1">{series.title}</h3>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            {movie.imdbRatingValue && (
+            {series.imdbRatingValue && (
               <div className="flex items-center gap-1">
                 <Star className="h-3 w-3 fill-yellow-500 text-yellow-500" />
-                <span>{movie.imdbRatingValue}</span>
+                <span>{series.imdbRatingValue}</span>
               </div>
             )}
-            {movie.releaseDate && (
+            {series.releaseDate && (
               <div className="flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                <span>{new Date(movie.releaseDate).getFullYear()}</span>
+                <span>{new Date(series.releaseDate).getFullYear()}</span>
               </div>
             )}
           </div>
         </CardContent>
       </Card>
-    
-  
-  </Link>
+    </Link>
+  );
 };

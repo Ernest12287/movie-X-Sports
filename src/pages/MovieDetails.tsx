@@ -23,7 +23,9 @@ const MovieDetails = () => {
         `https://movieapi.giftedtech.co.ke/api/info/${id}`
       );
       if (!response.ok) throw new Error("Failed to fetch movie info");
-      return response.json();
+      const data = await response.json();
+      console.log("📺 Movie/Series Info:", data);
+      return data;
     },
   });
 
@@ -34,7 +36,10 @@ const MovieDetails = () => {
         `https://movieapi.giftedtech.co.ke/api/sources/${id}`
       );
       if (!response.ok) throw new Error("Failed to fetch sources");
-      return response.json();
+      const data = await response.json();
+      console.log("🎬 Sources Data:", data);
+      console.log("📦 Sources Results:", data?.results);
+      return data;
     },
   });
 
@@ -307,14 +312,14 @@ const MovieDetails = () => {
               <h2 className="text-xl font-semibold mb-3">Watch & Download</h2>
               
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {sources.results.map((source: any) => (
-                  <Card key={source.id} className="bg-card/50 border-border/50 hover-glow transition-all">
+                {sources.results.map((source: any, sourceIndex: number) => (
+                  <Card key={`${source.id || sourceIndex}-${source.quality}`} className="bg-card/50 border-border/50 hover-glow transition-all">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <p className="font-semibold text-neon-pink">{source.quality}</p>
                           <p className="text-xs text-muted-foreground">
-                            {(parseInt(source.size) / (1024 * 1024)).toFixed(0)} MB
+                            {source.size ? `${(parseInt(source.size) / (1024 * 1024)).toFixed(0)} MB` : 'N/A'}
                           </p>
                         </div>
                       </div>
