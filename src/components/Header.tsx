@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Film, Tv, AlertCircle } from "lucide-react";
+import { Film, Tv, AlertCircle, Music } from "lucide-react"; // Add Music icon
 import logo from "@/assets/logo.jpeg";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -48,6 +48,14 @@ export const Header = () => {
             >
               <Tv className="h-4 w-4" />
               Sports
+            </Link>
+            {/* NEW MUSIC LINK */}
+            <Link 
+              to="/music" 
+              className="flex items-center gap-2 text-sm font-medium transition-colors hover:text-neon-yellow"
+            >
+              <Music className="h-4 w-4" />
+              Music
             </Link>
             <a
               href="https://t.me/ernesttechhouse"

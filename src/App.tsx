@@ -13,6 +13,7 @@ import MovieDetails from "./pages/MovieDetails";
 import Sports from "./pages/Sports";
 import NotFound from "./pages/NotFound";
 import SeriesDetails from "./pages/SeriesDetails";
+import MusicPlaceholder from "./pages/MusicPlaceholder";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/movies" element={<Movies />} />
+              <Route path="/music" element={<MusicPlaceholder />} />
               <Route path="/series" element={<Series />} />
               <Route path="/series/:id" element={<SeriesDetails />} />
               <Route path="/movie/:id" element={<MovieDetails />} />
